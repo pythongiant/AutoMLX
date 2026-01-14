@@ -108,7 +108,7 @@ def enable_tracing():
     global _original_array_add
     _original_array_add = mx.array.__add__
     mx.array.__add__ = make_traced_op("add", _original_array_add)
-
+    
 def disable_tracing():
     TraceContext.enabled = False
 
@@ -119,16 +119,3 @@ def disable_tracing():
     if _original_array_add is not None:
         mx.array.__add__ = _original_array_add
 
-def new_tid_for_output(t):
-    ctx = TraceContext
-    tid = ctx.next_tid
-    ctx.next_tid += 1
-
-    ctx.tensor_ids[id(t)] = tid
-    ctx.tensors[tid] = TensorInfo(
-        tid=tid,
-        shape=tuple(t.shape),
-        dtype=t.dtype,
-        device=getattr(t, "device", None),
-    )
-    return tid
