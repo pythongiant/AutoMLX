@@ -62,23 +62,31 @@ Fusing ops:
 FlashAttention exists almost entirely because of this.
 # Checklist
 
-[x] Identity-safe tensor tracing using `id(tensor)` (no weakrefs, view-safe)
-[x] Full op surface tracing across elementwise, reductions, linalg, shape, indexing, and multi-output ops
-[x] Correct SSA-style GraphIR with explicit producers, consumers, constants, and kwargs
-[x] Faithful runtime interpreter supporting unary, binary, variadic, kwargs, and multi-output ops
-[x] Deterministic input binding captured at trace time (no ordering or shape inference)
-[x] Validation suite covering elementwise, reductions, GEMM, broadcasting, views, and multi-output semantics
-[x] End-to-end correctness parity vs eager MLX (`mx.allclose`)
-[ ] Add op classification map (ELEMENTWISE, REDUCTION, GEMM, BARRIER)
-[ ] Implement greedy forward fusion with single-consumer constraint and alias-safety checks
-[ ] Track on-chip footprint (register/shared memory) per fusion region
-[ ] Implement `cost_model(region) -> (benefit, resource_penalty)`
-[ ] Add legality checks (reduction boundaries, non-fusible barriers, multi-output splits)
-[ ] Run local beam search over region join/split decisions
-[ ] Canonicalize softmax (`max → sub → exp → sum → div`) for pattern exposure
-[ ] Pattern-match `matmul + add + softmax` → dispatch FlashAttention-style template
-[ ] Lower remaining regions to Triton / Metal templates
-[ ] Autotune 5–10 candidate schedules per region (tile sizes, unroll, vector width)
-[ ] Cache tuned schedules by `(op sequence, shapes, dtype, device)`
-[ ] Add regression tests for fusion legality and numerical stability
+[x] Identity-safe tensor tracing using `id(tensor)` (no weakrefs, view-safe)  
+[x] Full op surface tracing across elementwise, reductions, linalg, shape, indexing, and multi-output ops  
+[x] Correct SSA-style GraphIR with explicit producers, consumers, constants, and kwargs  
+[x] Faithful runtime interpreter supporting unary, binary, variadic, kwargs, and multi-output ops  
+[x] Deterministic input binding captured at trace time (no ordering or shape inference)  
+[x] Validation suite covering elementwise, reductions, GEMM, broadcasting, views, and multi-output semantics  
+[x] End-to-end correctness parity vs eager MLX (`mx.allclose`)  
+
+[x] Add op classification map (ELEMENTWISE, REDUCTION, GEMM, RESHAPE/VIEW, INDEXING, BARRIER)  
+[x] Define conservative fusion barriers (IO, random, sort/select, multi-output shape ops)  
+
+[x] Canonicalize softmax (`max → sub → exp → sum → div`) with numerically stable lowering  
+[x] Eliminate `softmax` op from IR and expose attention-friendly patterns  
+[x] Add structural + numerical regression tests for softmax canonicalization  
+
+[ ] Implement greedy forward fusion with single-consumer constraint and alias-safety checks  
+[ ] Add legality checks (reduction boundaries, barriers, multi-output splits)  
+[ ] Track on-chip footprint (register/shared memory) per fusion region  
+[ ] Implement `cost_model(region) -> (benefit, resource_penalty)`  
+[ ] Run local beam search over region join/split decisions  
+
+[ ] Pattern-match `matmul + add + max + sub + exp + sum + div` → dispatch FlashAttention-style template  
+[ ] Lower remaining regions to Triton / Metal templates  
+[ ] Autotune 5–10 candidate schedules per region (tile sizes, unroll, vector width)  
+[ ] Cache tuned schedules by `(op sequence, shapes, dtype, device)`  
+
+[ ] Add regression tests for fusion legality and numerical stability  
 [ ] Add performance benchmarks vs unfused MLX execution
