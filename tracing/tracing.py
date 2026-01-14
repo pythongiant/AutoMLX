@@ -88,9 +88,23 @@ OPS_TO_TRACE = [
     "hadamard_transform",
 ]
 
-_original_ops = {}
 
-_original_array_add = None
+# tracing/tracing.py (extend enable_tracing)
+
+_ARRAY_OPS = {
+    "__add__": "add",
+    "__radd__": "add",
+    "__sub__": "subtract",
+    "__rsub__": "subtract",
+    "__mul__": "multiply",
+    "__rmul__": "multiply",
+    "__truediv__": "divide",
+    "__rtruediv__": "divide",
+    "__neg__": "negative",
+}
+
+_original_ops = {}
+_original_array_ops = {}
 
 def enable_tracing():
     TraceContext.enabled = True
@@ -99,16 +113,21 @@ def enable_tracing():
     TraceContext.tensors.clear()
     TraceContext.ops.clear()
 
-    # wrap mx ops
+    # wrap mx functional ops
     for name in OPS_TO_TRACE:
         _original_ops[name] = getattr(mx, name)
         setattr(mx, name, make_traced_op(name, _original_ops[name]))
 
-    # wrap array __add__
-    global _original_array_add
-    _original_array_add = mx.array.__add__
-    mx.array.__add__ = make_traced_op("add", _original_array_add)
-    
+    # wrap array magic ops
+    for meth, opname in _ARRAY_OPS.items():
+        if hasattr(mx.array, meth):
+            _original_array_ops[meth] = getattr(mx.array, meth)
+            setattr(
+                mx.array,
+                meth,
+                make_traced_op(opname, _original_array_ops[meth])
+            )
+
 def disable_tracing():
     TraceContext.enabled = False
 
@@ -116,6 +135,8 @@ def disable_tracing():
         setattr(mx, name, fn)
     _original_ops.clear()
 
-    if _original_array_add is not None:
-        mx.array.__add__ = _original_array_add
+    for meth, fn in _original_array_ops.items():
+        setattr(mx.array, meth, fn)
+    _original_array_ops.clear()
+
 

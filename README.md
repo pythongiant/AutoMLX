@@ -60,13 +60,25 @@ Fusing ops:
 - Improves cache locality
 
 FlashAttention exists almost entirely because of this.
-
 # Checklist
 
+[x] Identity-safe tensor tracing using `id(tensor)` (no weakrefs, view-safe)
+[x] Full op surface tracing across elementwise, reductions, linalg, shape, indexing, and multi-output ops
+[x] Correct SSA-style GraphIR with explicit producers, consumers, constants, and kwargs
+[x] Faithful runtime interpreter supporting unary, binary, variadic, kwargs, and multi-output ops
+[x] Deterministic input binding captured at trace time (no ordering or shape inference)
+[x] Validation suite covering elementwise, reductions, GEMM, broadcasting, views, and multi-output semantics
+[x] End-to-end correctness parity vs eager MLX (`mx.allclose`)
 [ ] Add op classification map (ELEMENTWISE, REDUCTION, GEMM, BARRIER)
-[ ] Implement greedy forward fusion with single-consumer and on-chip footprint checks
-[ ] Implement `cost_model(region)` returning `(benefit, resource_penalty)`
-[ ] Run local beam search over join/split choices
-[ ] Pattern-match `matmul + add + softmax` → dispatch FlashAttention template
-[ ] Lower other regions to Triton/Metal templates and run 5–10 candidate autotunes
+[ ] Implement greedy forward fusion with single-consumer constraint and alias-safety checks
+[ ] Track on-chip footprint (register/shared memory) per fusion region
+[ ] Implement `cost_model(region) -> (benefit, resource_penalty)`
+[ ] Add legality checks (reduction boundaries, non-fusible barriers, multi-output splits)
+[ ] Run local beam search over region join/split decisions
+[ ] Canonicalize softmax (`max → sub → exp → sum → div`) for pattern exposure
+[ ] Pattern-match `matmul + add + softmax` → dispatch FlashAttention-style template
+[ ] Lower remaining regions to Triton / Metal templates
+[ ] Autotune 5–10 candidate schedules per region (tile sizes, unroll, vector width)
 [ ] Cache tuned schedules by `(op sequence, shapes, dtype, device)`
+[ ] Add regression tests for fusion legality and numerical stability
+[ ] Add performance benchmarks vs unfused MLX execution

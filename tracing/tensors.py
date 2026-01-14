@@ -23,22 +23,14 @@ class TensorInfo:
         self.producer: Optional[int] = None   # op index
         self.consumers: List[int] = []
 
-
 class OpNode:
-    """
-    Graph-level representation of an operation.
-    """
-    def __init__(
-        self,
-        op: str,
-        inputs: List[int],
-        outputs: List[int],
-        attrs: Optional[dict] = None,
-    ):
+    def __init__(self, op, inputs, outputs, attrs, const_args):
         self.op = op
-        self.inputs = inputs
-        self.outputs = outputs
-        self.attrs = attrs or {}
+        self.inputs = inputs          # tensor tids
+        self.outputs = outputs        # tensor tids
+        self.attrs = attrs or {}      # keyword args
+        self.const_args = const_args  # positional non-tensor args
+
 
 class TraceContext:
     enabled = False
@@ -76,6 +68,7 @@ def get_tid(t):
         )
 
     return ctx.tensor_ids[key]
+
 def new_tid_for_output(t):
     ctx = TraceContext
     tid = ctx.next_tid
