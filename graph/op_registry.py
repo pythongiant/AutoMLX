@@ -191,25 +191,30 @@ OP_KIND: Dict[str, OpKind] = {
 # -----------------------------------------------------------------------------
 
 BARRIERS: Set[str] = {
-    # IO
-    "load", "save", "savez", "savez_compressed", "save_gguf", "save_safetensors",
+    # ---- GEMM / contractions ----
+    "matmul", "addmm", "inner", "outer",
+    "tensordot", "einsum",
+    "quantized_matmul", "block_masked_mm",
+    "gather_mm", "gather_qmm",
 
-    # Random / nondeterministic
-    "random.normal",
+    # ---- convolutions ----
+    "conv1d", "conv2d", "conv3d",
+    "conv_transpose1d", "conv_transpose2d", "conv_transpose3d",
+    "conv_general",
 
-    # Sorting / selection
+    # ---- IO ----
+    "load", "save", "savez", "savez_compressed",
+    "save_gguf", "save_safetensors",
+
+    # ---- sorting / selection ----
     "sort", "argsort", "partition", "argpartition", "topk",
 
-    # Multi-output shape ops (treat as barrier initially)
+    # ---- multi-output / unsafe ----
     "split", "meshgrid",
 
-    # Reductions that change rank (until canonicalized)
+    # ---- rank-changing reductions ----
     "argmin", "argmax",
-
-    # Unknown / unsafe
-    "einsum",  # relaxed later once legality is explicit
 }
-
 
 # -----------------------------------------------------------------------------
 # Helper APIs

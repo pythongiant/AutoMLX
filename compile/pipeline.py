@@ -17,32 +17,48 @@ def trace_and_compile(fn, inputs):
     """
     End-to-end front-end compiler entry point.
 
-    Steps:
-      1. Enable tracing
-      2. Execute function eagerly (records trace)
-      3. Capture GraphIR
-      4. Run canonicalization passes
-      5. Return compiled GraphIR
+    Phases:
+      1. Trace eager execution
+      2. Build GraphIR (SSA)
+      3. Canonicalize graph (expose patterns)
+      4. Discover fusion regions (legality-only)
+      5. Return enriched GraphIR
     """
 
-    # ---- trace ----
+    # ------------------------------------------------------------------
+    # 1. Trace
+    # ------------------------------------------------------------------
     enable_tracing()
     fn(*inputs)
 
-    # IMPORTANT: capture input tids BEFORE disabling tracing
+    # Capture input tensor IDs *before* disabling tracing
     input_tids = {}
     for arr in inputs:
         input_tids[id(arr)] = TraceContext.tensor_ids[id(arr)]
 
     disable_tracing()
 
-    # ---- build graph ----
+    # ------------------------------------------------------------------
+    # 2. Graph construction
+    # ------------------------------------------------------------------
     g = from_trace(TraceContext)
 
-    # ---- record graph inputs deterministically ----
+    # Deterministic input ordering
     g.inputs = list(input_tids.values())
 
-    # ---- canonicalization passes ----
+    # ------------------------------------------------------------------
+    # 3. Canonicalization passes
+    # ------------------------------------------------------------------
+    # Example:
+    #   softmax(x) → max → sub → exp → sum → div
     g = canonicalize_softmax(g)
 
+    # ------------------------------------------------------------------
+    # 4. Fusion region discovery (no cost model yet)
+    # ------------------------------------------------------------------
+    g.regions = find_regions(g)
+
+    # ------------------------------------------------------------------
+    # 5. Return compiled graph
+    # ------------------------------------------------------------------
     return g

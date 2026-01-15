@@ -1,87 +1,87 @@
 # fusion/regions.py
+
 from dataclasses import dataclass
 from typing import List, Set
-from graph.ir import GraphIR
 
-# TODO: Expand on this
-ELEMENTWISE: Set[str] = {
-    "add", "subtract", "multiply", "divide", "maximum", "minimum",
-    "exp", "log", "tanh", "sigmoid", "rsqrt", "sqrt",
-    "where", "clip",
-}
-REDUCTIONS: Set[str] = {
-    "softmax", "sum", "mean", "prod", "max", "min", "logsumexp",
-}
-BARRIERS: Set[str] = {
-    "matmul", "addmm", "einsum",
-    "conv1d", "conv2d", "conv3d",
-    "sort", "argsort", "topk", "partition", "argpartition",
-    "load", "save", "savez", "save_gguf", "save_safetensors",
-}
+from graph.ir import GraphIR
+from graph.op_registry import get_op_kind, is_barrier, OpKind
+from graph.graph_utils import (
+    build_op_consumers,
+    single_consumer_only,
+    toposort_ops,
+)
+
 
 @dataclass
 class FusionRegion:
-    op_indices: List[int]
-    kind: str  # "barrier" | "generic" | "template"
-    score: float = 0.0
-    template: str | None = None
+    """
+    Concrete fusion region.
+    Public API: op_indices
+    Internal storage: _ops
+    """
+    _ops: List[int]
 
-def is_fusible(op_name: str) -> bool:
-    return (op_name in ELEMENTWISE) or (op_name in REDUCTIONS)
+    @property
+    def op_indices(self) -> List[int]:
+        # Backward-compatible public interface
+        return self._ops
 
-def is_barrier(op_name: str) -> bool:
-    return op_name in BARRIERS
+    @property
+    def ops(self) -> List[int]:
+        # Internal alias (optional)
+        return self._ops
 
-def outputs_exclusive(g: GraphIR, op_idx: int) -> bool:
-    # For safe fusion: every output has <= 1 consumer
-    op = g.ops[op_idx]
-    for tid in op.outputs:
-        if len(g.tensors[tid].consumers) > 1:
-            return False
-    return True
 
-def can_chain_fuse(g: GraphIR, prev_idx: int, curr_idx: int) -> bool:
+def can_fuse_pair(g: GraphIR, prev_idx: int, curr_idx: int) -> bool:
     prev = g.ops[prev_idx]
     curr = g.ops[curr_idx]
-    if not is_fusible(prev.op) or not is_fusible(curr.op):
-        return False
+
+    # ---- barrier checks ----
     if is_barrier(prev.op) or is_barrier(curr.op):
         return False
 
-    # must be data-dependent (chain)
-    if len(set(prev.outputs).intersection(curr.inputs)) == 0:
+    # ---- reduction boundary ----
+    if get_op_kind(prev.op) == OpKind.REDUCTION:
         return False
 
-    # prevent escaping intermediates
-    if not outputs_exclusive(g, prev_idx):
+    if get_op_kind(curr.op) == OpKind.REDUCTION:
+        return False
+
+    # ---- data dependency ----
+    if not set(prev.outputs).intersection(curr.inputs):
+        return False
+
+    # ---- single-consumer invariant ----
+    if not single_consumer_only(g, prev_idx):
         return False
 
     return True
 
+
+
 def find_regions(g: GraphIR) -> List[FusionRegion]:
+    """
+    Phase-1 fusion region discovery (legality only).
+
+    Design:
+    - Each op starts as its own region
+    - No greedy expansion
+    - No BFS / DFS
+    - No cost model
+    - Deterministic
+
+    Rationale:
+    - Cost-aware fusion must *grow* regions, not split them
+    - This mirrors XLA / TVM / TorchInductor architecture
+    """
     regions: List[FusionRegion] = []
-    current: List[int] = []
 
-    for i, op in enumerate(g.ops):
-        if is_barrier(op.op) or not is_fusible(op.op):
-            # flush current
-            if current:
-                regions.append(FusionRegion(op_indices=current, kind="generic"))
-                current = []
-            regions.append(FusionRegion(op_indices=[i], kind="barrier"))
-            continue
-
-        if not current:
-            current = [i]
-            continue
-
-        if can_chain_fuse(g, current[-1], i):
-            current.append(i)
-        else:
-            regions.append(FusionRegion(op_indices=current, kind="generic"))
-            current = [i]
-
-    if current:
-        regions.append(FusionRegion(op_indices=current, kind="generic"))
+    for idx, op in enumerate(g.ops):
+        regions.append(FusionRegion([idx]))
 
     return regions
+
+
+def is_fusible(op_name: str) -> bool:
+    kind = get_op_kind(op_name)
+    return kind in (OpKind.ELEMENTWISE, OpKind.REDUCTION)
