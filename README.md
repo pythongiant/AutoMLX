@@ -60,33 +60,102 @@ Fusing ops:
 - Improves cache locality
 
 FlashAttention exists almost entirely because of this.
-# Checklist
 
-[x] Identity-safe tensor tracing using `id(tensor)` (no weakrefs, view-safe)  
-[x] Full op surface tracing across elementwise, reductions, linalg, shape, indexing, and multi-output ops  
-[x] Correct SSA-style GraphIR with explicit producers, consumers, constants, and kwargs  
-[x] Faithful runtime interpreter supporting unary, binary, variadic, kwargs, and multi-output ops  
-[x] Deterministic input binding captured at trace time (no ordering or shape inference)  
-[x] Validation suite covering elementwise, reductions, GEMM, broadcasting, views, and multi-output semantics  
-[x] End-to-end correctness parity vs eager MLX (`mx.allclose`)  
+# Core Compiler (Deterministic)
 
-[x] Add op classification map (ELEMENTWISE, REDUCTION, GEMM, RESHAPE/VIEW, INDEXING, BARRIER)  
-[x] Define conservative fusion barriers (IO, random, sort/select, multi-output shape ops)  
+[x] Identity-safe tensor tracing using id(tensor)
+[x] Full op surface tracing (elementwise, reduction, linalg, shape, multi-output)
+[x] SSA-style GraphIR with explicit producers, consumers, constants, kwargs
+[x] Deterministic input binding at trace time
+[x] Faithful runtime interpreter (unfused execution)
+[x] End-to-end correctness vs eager MLX
 
-[x] Canonicalize softmax (`max → sub → exp → sum → div`) with numerically stable lowering  
-[x] Eliminate `softmax` op from IR and expose attention-friendly patterns  
-[x] Add structural + numerical regression tests for softmax canonicalization  
+# Canonicalization & Semantics
 
-[ ] Implement greedy forward fusion with single-consumer constraint and alias-safety checks  
-[ ] Add legality checks (reduction boundaries, barriers, multi-output splits)  
-[ ] Track on-chip footprint (register/shared memory) per fusion region  
-[ ] Implement `cost_model(region) -> (benefit, resource_penalty)`  
-[ ] Run local beam search over region join/split decisions  
+[x] Op classification map (ELEMENTWISE, REDUCTION, GEMM, RESHAPE, INDEXING, BARRIER)
+[x] Conservative fusion barriers defined
+[x] Numerically stable softmax canonicalization
+[x] Softmax eliminated from IR
+[x] Structural + numerical tests for canonicalization
 
-[ ] Pattern-match `matmul + add + max + sub + exp + sum + div` → dispatch FlashAttention-style template  
-[ ] Lower remaining regions to Triton / Metal templates  
-[ ] Autotune 5–10 candidate schedules per region (tile sizes, unroll, vector width)  
-[ ] Cache tuned schedules by `(op sequence, shapes, dtype, device)`  
+# Fusion (Compiler-Owned)
 
-[ ] Add regression tests for fusion legality and numerical stability  
-[ ] Add performance benchmarks vs unfused MLX execution
+[x] Legality-only fusion region discovery
+[x] SSA single-consumer enforcement
+[x] Reduction boundary enforcement
+[x] Barrier enforcement
+[x] Deterministic toposort-based region construction
+
+[x] Greedy forward fusion
+[x] Incremental cost gating (Δbenefit > Δpenalty)
+[x] Peak live-byte tracking
+[x] Hard footprint caps
+[x] Cost model validated against pathological cases
+
+# Kernel Interface Layer (New, Critical)
+
+[x] Explicit FusedRegion abstraction
+[x] Stable kernel input/output contract per region
+[x] Region signature hashing (ops, shapes, dtypes)
+
+[ ] Define KernelIR (lower than GraphIR, higher than MLX code)
+[ ] Define kernel ABI (inputs, outputs, temporaries)
+
+# AI-Generated Kernel Layer
+
+[ ] Serialize FusedRegion → prompt representation
+[ ] Constrain generation to:
+
+pure MLX
+
+no side effects
+
+no graph mutation
+
+[ ] Generate candidate kernels for a fused region
+[ ] Enforce shape/dtype guards in generated code
+[ ] Static validation of generated kernel (signature, outputs)
+[ ] Run correctness check vs reference interpreter
+
+[ ] (Optional) Generate multiple variants per region
+[ ] Score variants via:
+
+cost model estimate
+
+microbenchmark timing
+
+[ ] Select best kernel deterministically
+
+Caching & Reuse
+
+[ ] Cache generated kernels by:
+
+(region_ops, shapes, dtypes, device)
+
+
+[ ] Reuse kernels across graphs and runs
+[ ] Invalidate cache on compiler version change
+
+# Execution & Integration
+
+[x] Fallback execution for fused regions
+[ ] Dispatch AI-generated kernel if available
+[ ] Fallback to interpreter if generation fails
+[ ] Preserve debuggability (region → kernel mapping)
+
+# Validation & Benchmarking
+
+[x] Fusion legality regression tests
+[x] Cost-model regression tests
+
+[ ] Generated kernel correctness tests
+[ ] Numerical stability tests
+[ ] Performance benchmarks:
+
+unfused vs fused
+
+fused vs AI-generated
+
+cold vs cached kernels
+
+---
