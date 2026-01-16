@@ -60,86 +60,142 @@ Fusing ops:
 - Improves cache locality
 
 FlashAttention exists almost entirely because of this.
+
 # Core Compiler (Deterministic)
 
-- [x] Identity-safe tensor tracing using id(tensor)
-- [x] Full op surface tracing (elementwise, reduction, linalg, shape, multi-output)
-- [x] SSA-style GraphIR with explicit producers, consumers, constants, kwargs
-- [x] Deterministic input binding at trace time
-- [x] Faithful runtime interpreter (unfused execution)
-- [x] End-to-end correctness vs eager MLX
+* [x] Identity-safe tensor tracing using `id(tensor)`
+* [x] Full op surface tracing (elementwise, reductions, linalg, shape, indexing, multi-output)
+* [x] SSA-style GraphIR with explicit producers, consumers, constants, and kwargs
+* [x] Deterministic input binding captured at trace time
+* [x] Faithful runtime interpreter for unfused GraphIR execution
+* [x] End-to-end numerical correctness vs eager MLX (`mx.allclose`)
+
+---
 
 # Canonicalization & Semantics
 
-- [x] Op classification map (ELEMENTWISE, REDUCTION, GEMM, RESHAPE, INDEXING, BARRIER)
-- [x] Conservative fusion barriers defined
-- [x] Numerically stable softmax canonicalization
-- [x] Softmax eliminated from IR
-- [x] Structural + numerical tests for canonicalization
+* [x] Op classification map
+  (`ELEMENTWISE`, `REDUCTION`, `GEMM`, `RESHAPE/VIEW`, `INDEXING`, `BARRIER`)
+* [x] Conservative fusion barriers defined (IO, random, sort/select, unsafe multi-output)
+* [x] Numerically stable softmax canonicalization
+* [x] `softmax` eliminated from IR and lowered into primitive ops
+* [x] Structural + numerical regression tests for canonicalization
+
+---
 
 # Fusion (Compiler-Owned)
 
-- [x] Legality-only fusion region discovery
-- [x] SSA single-consumer enforcement
-- [x] Reduction boundary enforcement
-- [x] Barrier enforcement
-- [x] Deterministic toposort-based region construction
+**Legality phase**
 
-- [x] Greedy forward fusion
-- [x] Incremental cost gating (Δbenefit > Δpenalty)
-- [x] Peak live-byte tracking
-- [x] Hard footprint caps
-- [x] Cost model validated against pathological cases
+* [x] Legality-only fusion region discovery
+* [x] Deterministic toposort-based region construction
+* [x] SSA single-consumer enforcement
+* [x] Reduction boundary enforcement
+* [x] Barrier enforcement
 
-# Kernel Interface Layer (New, Critical)
+**Cost-gated fusion**
 
-- [x] Explicit FusedRegion abstraction
-- [x] Stable kernel input/output contract per region
-- [x] Region signature hashing (ops, shapes, dtypes)
+* [x] Greedy forward fusion
+* [x] Incremental cost gating (`Δbenefit > Δpenalty`)
+* [x] Peak live-byte estimation
+* [x] Hard footprint caps for pathological regions
+* [x] Cost model validated against large-tensor and over-fusion cases
 
-- [ ] Define KernelIR (lower than GraphIR, higher than MLX code)
-- [ ] Define kernel ABI (inputs, outputs, temporaries)
+---
 
-# AI-Generated Kernel Layer
+# Kernel Interface Layer (Compiler ↔ Backend Boundary)
 
-- [ ] Serialize FusedRegion → prompt representation
-- [ ] Constrain generation to:
-  - pure MLX
-  - no side effects
-  - no graph mutation
-- [ ] Generate candidate kernels for a fused region
-- [ ] Enforce shape/dtype guards in generated code
-- [ ] Static validation of generated kernel (signature, outputs)
-- [ ] Run correctness check vs reference interpreter
+* [x] Explicit `FusionRegion` abstraction
 
-- [ ] (Optional) Generate multiple variants per region
-- [ ] Score variants via:
-  - cost model estimate
-  - microbenchmark timing
-- [ ] Select best kernel deterministically
+* [x] Stable per-region input/output contract
+
+* [x] Region signature determinism (ops, order, shapes, dtypes)
+
+* [x] **KernelIR defined** (lower than GraphIR, higher than MLX)
+
+* [x] **Explicit kernel ABI**
+
+  * inputs
+  * outputs
+  * temporaries
+
+* [x] Deterministic lowering: `FusionRegion → KernelIR`
+
+* [x] KernelIR structural validator
+
+* [x] Reference (correctness-first) KernelIR executor
+
+* [x] KernelIR → MLX codegen path
+
+* [x] Reference executor ≡ MLX codegen equivalence tests
+
+* [x] Multi-output kernel support (e.g. `meshgrid`)
+
+---
+
+# AI-Generated Kernel Layer (Future, Isolated)
+
+> **This layer does not replace the compiler.
+> It plugs in strictly below KernelIR.**
+
+* [ ] Serialize `KernelIR` / `FusionRegion` → prompt-safe representation
+* [ ] Constrain generation to:
+
+  * pure MLX
+  * no side effects
+  * no graph mutation
+  * explicit inputs/outputs only
+* [ ] Generate candidate kernels for a single region
+* [ ] Enforce shape/dtype guards in generated code
+* [ ] Static validation of generated kernel vs KernelIR ABI
+* [ ] Run correctness check vs KernelIR reference executor
+
+**Optional optimization**
+
+* [ ] Generate multiple variants per region
+* [ ] Score variants via:
+
+  * cost model estimate
+  * microbenchmark timing
+* [ ] Deterministic winner selection
+
+---
 
 # Caching & Reuse
 
-- [ ] Cache generated kernels by:
-  - (region_ops, shapes, dtypes, device)
-- [ ] Reuse kernels across graphs and runs
-- [ ] Invalidate cache on compiler version change
+* [ ] Cache generated kernels by:
+
+  * `(region signature, shapes, dtypes, device)`
+* [ ] Reuse kernels across graphs and runs
+* [ ] Cache invalidation on compiler / KernelIR version change
+
+---
 
 # Execution & Integration
 
-- [x] Fallback execution for fused regions
-- [ ] Dispatch AI-generated kernel if available
-- [ ] Fallback to interpreter if generation fails
-- [ ] Preserve debuggability (region → kernel mapping)
+* [x] Deterministic fallback execution for fused regions
+* [ ] Dispatch AI-generated kernel when available
+* [ ] Fallback to KernelIR interpreter on failure
+* [ ] Preserve debuggability:
+
+  * region → kernel → source ops mapping
+
+---
 
 # Validation & Benchmarking
 
-- [x] Fusion legality regression tests
-- [x] Cost-model regression tests
+* [x] Fusion legality regression tests
 
-- [ ] Generated kernel correctness tests
-- [ ] Numerical stability tests
-- [ ] Performance benchmarks:
-  - unfused vs fused
-  - fused vs AI-generated
-  - cold vs cached kernels
+* [x] Cost-model regression tests
+
+* [x] KernelIR lowering / validation / execution tests
+
+* [ ] AI-generated kernel correctness tests
+
+* [ ] Numerical stability stress tests
+
+* [ ] Performance benchmarks:
+
+  * unfused vs fused
+  * fused vs AI-generated
+  * cold vs cached kernels
