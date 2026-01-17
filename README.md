@@ -61,6 +61,7 @@ Fusing ops:
 
 FlashAttention exists almost entirely because of this.
 
+
 # Core Compiler (Deterministic)
 
 * [x] Identity-safe tensor tracing using `id(tensor)`
@@ -85,7 +86,7 @@ FlashAttention exists almost entirely because of this.
 
 # Fusion (Compiler-Owned)
 
-**Legality phase**
+## Legality phase
 
 * [x] Legality-only fusion region discovery
 * [x] Deterministic toposort-based region construction
@@ -93,7 +94,7 @@ FlashAttention exists almost entirely because of this.
 * [x] Reduction boundary enforcement
 * [x] Barrier enforcement
 
-**Cost-gated fusion**
+## Cost-gated fusion
 
 * [x] Greedy forward fusion
 * [x] Incremental cost gating (`Δbenefit > Δpenalty`)
@@ -109,9 +110,11 @@ FlashAttention exists almost entirely because of this.
 
 * [x] Stable per-region input/output contract
 
-* [x] Region signature determinism (ops, order, shapes, dtypes)
+* [x] Region signature determinism
+  (ops, order, shapes, dtypes)
 
-* [x] **KernelIR defined** (lower than GraphIR, higher than MLX)
+* [x] **KernelIR defined**
+  (lower than GraphIR, higher than MLX)
 
 * [x] **Explicit kernel ABI**
 
@@ -138,8 +141,8 @@ FlashAttention exists almost entirely because of this.
 > **This layer does not replace the compiler.
 > It plugs in strictly below KernelIR.**
 
-* [ ] Serialize `KernelIR` / `FusionRegion` → prompt-safe representation
-* [ ] Constrain generation to:
+* [x] Serialize `KernelIR` → deterministic, prompt-safe representation
+* [x] Prompt explicitly constrains:
 
   * pure MLX
   * no side effects
@@ -150,7 +153,7 @@ FlashAttention exists almost entirely because of this.
 * [ ] Static validation of generated kernel vs KernelIR ABI
 * [ ] Run correctness check vs KernelIR reference executor
 
-**Optional optimization**
+## Optional optimization
 
 * [ ] Generate multiple variants per region
 * [ ] Score variants via:
@@ -190,6 +193,8 @@ FlashAttention exists almost entirely because of this.
 
 * [x] KernelIR lowering / validation / execution tests
 
+* [x] Prompt determinism & safety tests
+
 * [ ] AI-generated kernel correctness tests
 
 * [ ] Numerical stability stress tests
@@ -199,3 +204,4 @@ FlashAttention exists almost entirely because of this.
   * unfused vs fused
   * fused vs AI-generated
   * cold vs cached kernels
+
