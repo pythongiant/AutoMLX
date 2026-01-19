@@ -41,15 +41,15 @@ def lower_region_to_kernel(g: GraphIR, region: FusionRegion) -> KernelIR:
     tensors = {}
     for tid in kernel_inputs:
         t = g.tensors[tid]
-        tensors[tid] = KernelTensor(tid, t.shape, t.dtype, "input")
+        tensors[tid] = KernelTensor(tid=tid, role="input", shape=t.shape, dtype=t.dtype)
 
     for tid in kernel_outputs:
         t = g.tensors[tid]
-        tensors[tid] = KernelTensor(tid, t.shape, t.dtype, "output")
+        tensors[tid] = KernelTensor(tid=tid, role="output", shape=t.shape, dtype=t.dtype)
 
     for tid in kernel_temps:
         t = g.tensors[tid]
-        tensors[tid] = KernelTensor(tid, t.shape, t.dtype, "temp")
+        tensors[tid] = KernelTensor(tid=tid, role="temp", shape=t.shape, dtype=t.dtype)
 
     # Lower ops
     kernel_ops: List[KernelOp] = []

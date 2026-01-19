@@ -147,11 +147,11 @@ FlashAttention exists almost entirely because of this.
   * no graph mutation
   * explicit inputs/outputs only
 * [x] Prompt generation isolated from execution (LLM may be stubbed)
-* [ ] Generate candidate kernels for a single region
-* [ ] Enforce shape/dtype guards in generated code
-* [ ] Static validation of generated kernel vs KernelIR ABI
-* [ ] Run correctness check vs KernelIR reference executor
-* [ ] Reject kernels that allocate, branch, or call high-level MLX ops
+* [x] Generate candidate kernels for a single region
+* [x] Enforce shape/dtype guards in generated code
+* [x] Static validation of generated kernel vs KernelIR ABI
+* [x] Run correctness check vs KernelIR reference executor
+* [x] Reject kernels that allocate, branch, or call high-level MLX ops
 
 ## Optional optimization
 
